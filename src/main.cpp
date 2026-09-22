@@ -1,6 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
-#include <cmath>
+#include "HilbertCurve.h"
 
 int main()
 {
@@ -10,13 +10,8 @@ int main()
 	std::cout << "Enter the Hilbert Curve level you would like to draw: ";
 	std::cin >> level;
 
-	//Calculates the total number of points
-	int gridSize = (int)std::pow(2, 2 * level);
-
-	//Calculates the width of the grid
-	int gridWidth = (int)std::sqrt(gridSize);
-
-	//printf("The grid is %dx%d\n", gridWidth, gridWidth); //This is for testing
+	//Call the constructor for the Hilbert Curve class with the desired level
+	HilbertCurve hilbertCurve(level);
 	
 
 	sf::RenderWindow window( sf::VideoMode( { 1024, 1024 } ), "HW1 - Hilbert-Curve" );
@@ -31,6 +26,7 @@ int main()
 
 		//Makes background white so black points display clearly
 		window.clear(sf::Color::White); 
+		window.draw(hilbertCurve);
 		window.display();
 	}
 }
