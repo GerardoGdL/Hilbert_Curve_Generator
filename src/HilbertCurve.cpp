@@ -2,78 +2,134 @@
 #include <cmath>
 
 HilbertCurve::HilbertCurve(int level) : level(level) {
-    //Total amount of points in the grid
-    int total_points = (int)std::pow(2, 2 * level);
 
-    //Calculates the width of the grid
-    int grid_width = (int)std::pow(2, level);
+    lines = sf::VertexArray(sf::PrimitiveType::LineStrip);
 
-    /*
-    Since we need the points to take up most of the space in the window
-    this will calculate the spacing required between points to fit within
-    a 1000x1000 area to allow for a small 12px margin to see the full pattern
-    */
+    //This starts us off with no transformation (identity matrix)
+    sf::Transform identity;
 
-    float drawing_size = 1000.f;
-    float margin = 12.f;
+    HilbertCurve::generateHilbertCurve(level, identity);
 
-    /*
-    There are n-1 spaces between n points, so dividing the grid size we want
-    by n-1 will give us the spacing required to fit the points in the area
-    */
+    //Scale the actual curve to be visible in the window
+    setScale({ 1000.f, 1000.f });
 
-    float spacing = drawing_size / (grid_width - 1);
-
-
-    this->points = sf::VertexArray(sf::PrimitiveType::Points, total_points);
-
-    //This is for testing
-    printf("The grid is %dx%d\n", (int)std::sqrt(total_points), (int)std::sqrt(total_points));
-
-    //This populates the vertex array with the points for the grid
-    for (int y = 0; y < grid_width; y++)
-    {
-        for (int x = 0; x < grid_width; x++)
-        {
-            //This will draw the grid from bottom left to top right
-            int index = y * grid_width + x;
-
-            points[index].position = sf::Vector2f(x * spacing + margin, y * spacing + margin);
-            points[index].color = sf::Color::Black;
-        }
-    }
-
-    HilbertCurve::generateHilbertCurve(level, grid_width, spacing, margin);
+    //Add a 12px margin to be able to properly see the curve
+    setPosition({ 12.f, 12.f });
 
 }
 
-void HilbertCurve::draw(sf::RenderTarget& target, sf::RenderStates states) const {   
-    target.draw( points, getTransform() );  
-    target.draw( lines, getTransform() ); 
+void HilbertCurve::draw(sf::RenderTarget& target, sf::RenderStates states) const { 
+    states.transform *= getTransform();
+    target.draw( lines, states ); 
 }
 
-/*
-    This function will generate the Hilbert Curve based on the level provided
-    The algorithm for generating the Hilbert Curve is recursive starting with
-    base level 1 and building up to the desired level.
-*/
-void HilbertCurve::generateHilbertCurve(int level, int grid_width, float spacing, float margin) {
+
+// This function will generate the Hilbert Curve based on the level provided
+// The algorithm for generating the Hilbert Curve is recursive starting with
+// base level 1 and building up to the desired level.
+
+void HilbertCurve::generateHilbertCurve(int level, const sf::Transform& parentTransform) {
     if (level <1) {
         printf("Level must be greater than 0\n");
         return;
     };
 
-    this->lines = sf::VertexArray(sf::PrimitiveType::LineStrip, (int)std::pow(2, 2 * level));
-
     if (level == 1) {
-        lines[0].position = sf::Vector2f(0 * spacing + margin, 0 * spacing + margin);
-        lines[1].position = sf::Vector2f(0 * spacing + margin, 1 * spacing + margin);
-        lines[2].position = sf::Vector2f(1 * spacing + margin, 1 * spacing + margin);
-        lines[3].position = sf::Vector2f(1 * spacing + margin, 0 * spacing + margin);
 
-        lines[0].color = sf::Color::Red;
-        lines[1].color = sf::Color::Red;
-        lines[2].color = sf::Color::Red;
-        lines[3].color = sf::Color::Red;
-    };
+        //Base case for the recursion
+        sf::Vector2f basePoints[4] =
+        {
+            { 0.f, 0.f },
+            { 0.f, 1.f },
+            { 1.f, 1.f },
+            { 1.f, 0.f }
+        };
+
+        for (int i = 0; i < 4; i++) {
+            sf::Vector2f transformedPoint = parentTransform.transformPoint(basePoints[i]);
+            lines.append(sf::Vertex());
+            int index = lines.getVertexCount() - 1;
+            lines[index].position = transformedPoint;
+            lines[index].color = sf::Color::Black;
+            printf("Point %d: (%f, %f)\n", i, transformedPoint.x, transformedPoint.y);
+        }
+
+        return;
+    }
+
+    //This will be the 4 orientations of the copies of the n-1 level Hilbert Curve
+    sf::Transform bottomLeft;
+    sf::Transform topLeft;
+    sf::Transform topRight;
+    sf::Transform bottomRight;
+
+    createTransformations(level, bottomLeft, topLeft, topRight, bottomRight);
+
+    //Recursively generates the 4 copies of the n-1 level Hilbert Curve in the correct orientation and position
+    printf("Level %d bottom left:\n", level);
+    generateHilbertCurve(level - 1, parentTransform * bottomLeft);
+    printf("Level %d top left:\n", level);
+    generateHilbertCurve(level - 1, parentTransform * topLeft);
+    printf("Level %d top right:\n", level);
+    generateHilbertCurve(level - 1, parentTransform * topRight);
+    printf("Level %d bottom right:\n", level);
+    generateHilbertCurve(level - 1, parentTransform * bottomRight);
+}
+
+void HilbertCurve::createTransformations(int level, sf::Transform& bottomLeft, sf::Transform& topLeft, sf::Transform& topRight, sf::Transform& bottomRight) {
+    //The scale variable is used to scale the n-1 level to fit the nth level
+    //Since the n level has two n-1 levels stacked on top of each other
+    //plus an extra line (length 1/(2^n - 1)) in between, we need 
+    //to scale the n-1 level down by a factor of (2^(n-1) - 1)/(2^n - 1)
+
+    float scale =(float)(std::pow(2, level - 1) - 1) / (float)(std::pow(2, level) - 1);
+
+    //The half variable finds the middle line in the shape:
+    //Ex: n = 2
+    //  __    __
+    // |  |__|  |
+    // |__    __| <-- This is the middle line (2/3 of the way up)
+    //  __|  |__
+
+    float half = (float)(std::pow(2, level - 1)) / (float)(std::pow(2, level) - 1);
+
+    //Using the structure of affine transformations given in class:
+    //
+    //  [ scale    0     translationX ]
+    //  [   0    scale   translationY ]
+    //  [   0      0         1        ]
+    //
+    //We can then use this to determine each transformation for every orientation
+
+    //Bottom left (Flip x and y / 90 degree CW rotation) 
+
+    bottomLeft = sf::Transform(
+        0.f,     scale,  0.f,
+        scale,   0.f,    0.f,
+        0.f,     0.f,    1.f
+    );
+
+    //Top left (Translate up by half the height)
+
+    topLeft = sf::Transform(
+        scale,   0.f,    0.f,
+        0.f,     scale,  half,
+        0.f,     0.f,    1.f
+    );
+
+    //Top right (Translate up by half the height and right by half the width)
+
+    topRight = sf::Transform(
+        scale,   0.f,    half,
+        0.f,     scale,  half,
+        0.f,     0.f,    1.f
+    );
+
+    //Bottom right (Opposite of bottom left, translate right by half the width)
+
+    bottomRight = sf::Transform(
+        0.f,     -scale,  1.f,
+        scale,    0.f,    0.f,
+        0.f,      0.f,    1.f
+    );
 }
