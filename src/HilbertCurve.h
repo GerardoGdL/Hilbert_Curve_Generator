@@ -12,7 +12,7 @@ private:
     //Override of the draw function
     void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
 
-    void generateHilbertCurve(int level, const sf::Transform& parentTransform);
+    void generateHilbertCurve(int level, const sf::Transform& parentTransform, bool reverse = false);
 
     void createTransformations(int level,sf::Transform& bottomLeft,sf::Transform& topLeft,sf::Transform& topRight,sf::Transform& bottomRight);
 

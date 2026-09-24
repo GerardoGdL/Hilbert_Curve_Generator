@@ -1,5 +1,6 @@
 #include "HilbertCurve.h"
 #include <cmath>
+#include <utility>
 
 HilbertCurve::HilbertCurve(int level) : level(level) {
 
@@ -10,7 +11,12 @@ HilbertCurve::HilbertCurve(int level) : level(level) {
 
     HilbertCurve::generateHilbertCurve(level, identity);
 
-    //Scale the actual curve to be visible in the window
+    //This is for testing to make sure the points are being generated correctly
+    for (std::size_t i = 0; i < lines.getVertexCount(); i++) {
+        printf("Final Point %zu: (%f, %f)\n", i, lines[i].position.x, lines[i].position.y);
+    }
+
+    //Scale the curve
     setScale({ 1000.f, 1000.f });
 
     //Add a 12px margin to be able to properly see the curve
@@ -28,11 +34,14 @@ void HilbertCurve::draw(sf::RenderTarget& target, sf::RenderStates states) const
 // The algorithm for generating the Hilbert Curve is recursive starting with
 // base level 1 and building up to the desired level.
 
-void HilbertCurve::generateHilbertCurve(int level, const sf::Transform& parentTransform) {
+void HilbertCurve::generateHilbertCurve(int level, const sf::Transform& parentTransform, bool reverse) {
     if (level <1) {
         printf("Level must be greater than 0\n");
         return;
     };
+
+    //This is to keep track of the starting index of the current level so we can reverse it if needed
+    int startIndex = lines.getVertexCount();
 
     if (level == 1) {
 
@@ -51,7 +60,16 @@ void HilbertCurve::generateHilbertCurve(int level, const sf::Transform& parentTr
             int index = lines.getVertexCount() - 1;
             lines[index].position = transformedPoint;
             lines[index].color = sf::Color::Black;
-            printf("Point %d: (%f, %f)\n", i, transformedPoint.x, transformedPoint.y);
+        }
+
+        if (reverse) {
+            int endIndex = lines.getVertexCount() - 1;
+
+            while (startIndex < endIndex) {
+                std::swap(lines[startIndex], lines[endIndex]);
+                startIndex++;
+                endIndex--;
+            }
         }
 
         return;
@@ -64,16 +82,21 @@ void HilbertCurve::generateHilbertCurve(int level, const sf::Transform& parentTr
     sf::Transform bottomRight;
 
     createTransformations(level, bottomLeft, topLeft, topRight, bottomRight);
-
-    //Recursively generates the 4 copies of the n-1 level Hilbert Curve in the correct orientation and position
-    printf("Level %d bottom left:\n", level);
     generateHilbertCurve(level - 1, parentTransform * bottomLeft);
-    printf("Level %d top left:\n", level);
     generateHilbertCurve(level - 1, parentTransform * topLeft);
-    printf("Level %d top right:\n", level);
     generateHilbertCurve(level - 1, parentTransform * topRight);
-    printf("Level %d bottom right:\n", level);
-    generateHilbertCurve(level - 1, parentTransform * bottomRight);
+    generateHilbertCurve(level - 1, parentTransform * bottomRight, true);
+
+    if (reverse) {
+        int endIndex = lines.getVertexCount() - 1;
+
+        while (startIndex < endIndex) {
+            std::swap(lines[startIndex], lines[endIndex]);
+            startIndex++;
+            endIndex--;
+        }
+    }
+
 }
 
 void HilbertCurve::createTransformations(int level, sf::Transform& bottomLeft, sf::Transform& topLeft, sf::Transform& topRight, sf::Transform& bottomRight) {

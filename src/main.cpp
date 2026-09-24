@@ -10,11 +10,9 @@ int main()
 	std::cout << "Enter the Hilbert Curve level you would like to draw: ";
 	std::cin >> level;
 
-	//Call the constructor for the Hilbert Curve class with the desired level
 	HilbertCurve hilbertCurve(level);
 	
-
-	sf::RenderWindow window( sf::VideoMode( { 1024, 1024 } ), "HW1 - Hilbert-Curve" );
+	sf::RenderWindow window( sf::VideoMode( { 1024, 1024 }, sf::Style::Titlebar | sf::Style::Close), "HW1 - Hilbert-Curve" );
 
 	//SFML starts the coordinate system at top left, so we switch to bottom left
 	sf::View view = window.getView();
@@ -31,8 +29,27 @@ int main()
 	{
 		while ( const std::optional event = window.pollEvent() )
 		{
-			if ( event->is<sf::Event::Closed>() )
+			if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
+			{
+				if (keyPressed->code == sf::Keyboard::Key::Up)
+				{
+					++level;
+					hilbertCurve = HilbertCurve(level);
+				}
+				else if (keyPressed->code == sf::Keyboard::Key::Down)
+				{
+					if (level > 1)
+					{
+						--level;
+						hilbertCurve = HilbertCurve(level);
+					}
+				}
+			}
+
+			if (event->is<sf::Event::Closed>())
+			{
 				window.close();
+			}
 		}
 
 		//Makes background white so black points display clearly
